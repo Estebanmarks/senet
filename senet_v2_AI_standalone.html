@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Senet — Standalone Game</title>
+  <style>
+    :root {
+      --bg: #f5f5f4;
+      --card: #ffffff;
+      --text: #171717;
+      --muted: #525252;
+      --line: #e5e5e5;
+      --soft: #f0f0f0;
+      --accent: #111111;
+      --accent-2: #d4d4d4;
+      --water: #ececec;
+      --click: #111111;
+      --shadow: 0 8px 24px rgba(0,0,0,0.06);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .layout {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1.6fr 0.9fr;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-body { padding: 20px; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 30px; line-height: 1.1; }
+    h2 { font-size: 20px; }
+    .sub { color: var(--muted); margin-top: 8px; font-size: 14px; }
+
+    .topbar {
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .btn-row, .badge-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .btn {
+      border-radius: 18px;
+      padding: 11px 15px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    .btn:active { transform: scale(0.985); }
+    .btn-dark { background: var(--accent); color: white; }
+    .btn-light { background: white; color: var(--text); border: 1px solid #d4d4d4; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 600;
+      border: 1px solid #d4d4d4;
+      background: white;
+      color: var(--text);
+    }
+    .badge.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .board-wrap { margin-top: 18px; }
+    .board-row {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .square {
+      min-height: 92px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: white;
+      padding: 12px;
+      text-align: left;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+    .square.water { background: var(--water); }
+    .square.clickable {
+      border-color: var(--click);
+      box-shadow: 0 0 0 2px rgba(17,17,17,0.85);
+    }
+    .square.clickable:hover { transform: translateY(-2px); }
+    .sq-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .sq-num { font-size: 14px; font-weight: 700; }
+    .sq-tag { font-size: 10px; text-transform: uppercase; color: #737373; letter-spacing: .06em; }
+    .sq-center {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    .empty { color: #cfcfcf; font-size: 12px; }
+    .piece {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .piece-token {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .human { background: #111111; color: white; }
+    .ai { background: #e5e5e5; color: black; }
+    .click-label { font-size: 11px; color: #666; }
+
+    .status-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      margin-top: 16px;
+    }
+    .mini-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 16px;
+      background: white;
+    }
+    .mini-title { font-size: 14px; font-weight: 700; }
+    .mini-list { margin-top: 8px; font-size: 14px; color: var(--muted); display: grid; gap: 4px; }
+
+    .side-stack {
+      display: grid;
+      gap: 20px;
+    }
+
+    .rules { display: grid; gap: 10px; margin-top: 12px; color: var(--muted); font-size: 14px; }
+    .log {
+      margin-top: 12px;
+      max-height: 520px;
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      padding-right: 4px;
+    }
+    .log-item {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      padding: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 12px; }
+      h1 { font-size: 24px; }
+      .board-row { grid-template-columns: repeat(5, minmax(0,1fr)); }
+      .square { min-height: 82px; padding: 10px; }
+      .status-grid { grid-template-columns: 1fr; }
+      .log { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="layout">
+      <section class="card">
+        <div class="card-body">
+          <div class="topbar">
+            <div>
+              <h1>Senet: play against the AI</h1>
+              <p class="sub">Standalone one-file version for phone or desktop. You are the black pieces. Tap a highlighted piece on your turn.</p>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-dark" id="newHuman">New game · you start</button>
+              <button class="btn btn-light" id="newAI">New game · AI starts</button>
+            </div>
+          </div>
+
+          <div class="badge-row" style="margin-top:16px;" id="badges"></div>
+
+          <div class="board-wrap" id="board"></div>
+
+          <div class="status-grid">
+            <div class="mini-card">
+              <div class="mini-title">Your pieces</div>
+              <div class="mini-list" id="humanPieces"></div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-title">AI pieces</div>
+              <div class="mini-list" id="aiPieces"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-stack">
+        <section class="card">
+          <div class="card-body">
+            <h2>Rules in this version</h2>
+            <div class="rules">
+              <div>Move all five of your pieces off the board first.</div>
+              <div>Protected pieces cannot be captured if they are next to a friendly piece or on safe squares.</div>
+              <div>Square 27 is water and sends a piece back to the nearest free square at or below 15.</div>
+              <div>You need an exact roll to bear off beyond square 30.</div>
+              <div>AI uses a built-in heuristic, so this file works fully offline.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-body">
+            <h2>Game log</h2>
+            <div class="log" id="log"></div>
+            <div class="footer-note">Tip: on iPhone, use “Add to Home Screen” in Safari after opening the file through a public web link.</div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const BOARD_END = 30;
+    const OFF_BOARD = 0;
+    const SAFE_SQUARES = new Set([25, 26, 28, 29]);
+    const WATER_SQUARE = 27;
+    const STICK_OUTCOMES = [
+      { move: 1, extra: true },
+      { move: 2, extra: false },
+      { move: 3, extra: false },
+      { move: 4, extra: true },
+      { move: 5, extra: true },
+    ];
+
+    const AI_STORAGE_KEY = 'senet_q_v2';
+    const TRAINING_META_KEY = 'senet_q_meta_v2';
+
+    const boardEl = document.getElementById('board');
+    const badgesEl = document.getElementById('badges');
+    const humanPiecesEl = document.getElementById('humanPieces');
+    const aiPiecesEl = document.getElementById('aiPieces');
+    const logEl = document.getElementById('log');
+
+    function initialPositions() {
+      return [[1, 3, 5, 7, 9], [2, 4, 6, 8, 10]];
+    }
+
+    function randomThrow() {
+      return STICK_OUTCOMES[Math.floor(Math.random() * STICK_OUTCOMES.length)];
+    }
+
+    function clonePositions(positions) {
+      return [positions[0].slice(), positions[1].slice()];
+    }
+
+    function cloneState(state) {
+      return {
+        positions: clonePositions(state.positions),
+        currentPlayer: state.currentPlayer,
+        move: state.move,
+        extraTurn: state.extraTurn,
+        winner: state.winner,
+        log: state.log ? state.log.slice() : [],
+      };
+    }
+
+    function occupiedMap(positions) {
+      const occ = new Map();
+      [0, 1].forEach(player => {
+        positions[player].forEach((pos, pieceIdx) => {
+          if (pos !== OFF_BOARD) occ.set(pos, { player, pieceIdx });
+        });
+      });
+      return occ;
+    }
+
+    function nearestRebirthSquare(positions) {
+      const occ = new Set([...occupiedMap(positions).keys()]);
+      for (let sq = 15; sq >= 1; sq--) {
+        if (!occ.has(sq)) return sq;
+      }
+      return null;
+    }
+
+    function isProtected(positions, player, pieceIdx) {
+      const pos = positions[player][pieceIdx];
+      if (pos === OFF_BOARD) return false;
+      if (SAFE_SQUARES.has(pos)) return true;
+      const friendly = new Set(positions[player]);
+      return friendly.has(pos - 1) || friendly.has(pos + 1);
+    }
+
+    function pathBlockedByEnemyTriple(positions, start, end, movingPlayer) {
+      const enemy = positions[1 - movingPlayer].filter(p => p !== OFF_BOARD);
+      if (start === OFF_BOARD || end <= start || enemy.length < 3) return false;
+      const enemySet = new Set(enemy);
+      for (let sq = start + 1; sq <= Math.min(end, BOARD_END); sq++) {
+        if (enemySet.has(sq - 1) && enemySet.has(sq) && enemySet.has(sq + 1)) return true;
+      }
+      return false;
+    }
+
+    function legalActions(state) {
+      if (state.winner !== null) return [];
+      const player = state.currentPlayer;
+      const occ = occupiedMap(state.positions);
+      const actions = [];
+
+      state.positions[player].forEach((pos, pieceIdx) => {
+        if (pos === OFF_BOARD) return;
+        const target = pos + state.move;
+
+        if (target > BOARD_END) {
+          if (target === BOARD_END + 1) actions.push(pieceIdx);
+          return;
+        }
+
+        if (pathBlockedByEnemyTriple(state.positions, pos, target, player)) return;
+
+        const occupant = occ.get(target);
+        if (!occupant) {
+          actions.push(pieceIdx);
+          return;
+        }
+        if (occupant.player === player) return;
+        if (isProtected(state.positions, occupant.player, occupant.pieceIdx)) return;
+        actions.push(pieceIdx);
+      });
+
+      return actions;
+    }
+
+    function heuristicScore(state, pieceIdx) {
+      const player = state.currentPlayer;
+      const target = state.positions[player][pieceIdx] + state.move;
+      let score = 0;
+      if (target === BOARD_END + 1) score += 100;
+      if (target >= 25) score += 15;
+      if (target === WATER_SQUARE) score -= 40;
+      if (SAFE_SQUARES.has(target)) score += 10;
+      const occ = occupiedMap(state.positions).get(target);
+      if (occ && occ.player !== player) score += 25;
+      score += target;
+      return score;
+    }
+
+    function applyMove(state, pieceIdx) {
+      const positions = clonePositions(state.positions);
+      const player = state.currentPlayer;
+      const opponent = 1 - player;
+      const pos = positions[player][pieceIdx];
+      const target = pos + state.move;
+      const occ = occupiedMap(positions);
+      const log = state.log.slice();
+
+      if (target === BOARD_END + 1) {
+        positions[player][pieceIdx] = OFF_BOARD;
+        log.unshift(`${player === 0 ? 'You' : 'AI'} removed piece ${pieceIdx + 1} from the board.`);
+      } else {
+        const occupant = occ.get(target);
+        if (occupant && occupant.player !== player) {
+          positions[occupant.player][occupant.pieceIdx] = pos;
+          positions[player][pieceIdx] = target;
+          log.unshift(`${player === 0 ? 'You' : 'AI'} captured on square ${target}.`);
+        } else {
+          positions[player][pieceIdx] = target;
+          log.unshift(`${player === 0 ? 'You' : 'AI'} moved piece ${pieceIdx + 1} to square ${target}.`);
+        }
+
+        if (positions[player][pieceIdx] === WATER_SQUARE) {
+          const rebirth = nearestRebirthSquare(positions);
+          if (rebirth !== null) {
+            positions[player][pieceIdx] = rebirth;
+            log.unshift(`${player === 0 ? 'You' : 'AI'} fell into water and returned to ${rebirth}.`);
+          }
+        }
+      }
+
+      if (positions[player].every(p => p === OFF_BOARD)) {
+        return {
+          ...state,
+          positions,
+          winner: player,
+          log: [player === 0 ? 'You win.' : 'AI wins.', ...log],
+        };
+      }
+
+      const next = randomThrow();
+      return {
+        positions,
+        currentPlayer: state.extraTurn ? player : opponent,
+        move: next.move,
+        extraTurn: next.extra,
+        winner: null,
+        log,
+      };
+    }
+
+    function createInitialState(humanStarts) {
+      const first = randomThrow();
+      return {
+        positions: initialPositions(),
+        currentPlayer: humanStarts ? 0 : 1,
+        move: first.move,
+        extraTurn: first.extra,
+        winner: null,
+        log: [
+          `Game started. ${humanStarts ? 'You' : 'AI'} begin with throw ${first.move}${first.extra ? ' and an extra turn if the move is legal' : ''}.`
+        ],
+      };
+    }
+
+    function rows() {
+      return [
+        Array.from({ length: 10 }, (_, i) => i + 1),
+        Array.from({ length: 10 }, (_, i) => 20 - i),
+        Array.from({ length: 10 }, (_, i) => 21 + i),
+      ];
+    }
+
+    function tagForSquare(square) {
+      if (square === 25) return 'Rebirth';
+      if (square === 27) return 'Water';
+      if ([26, 28, 29].includes(square)) return 'Safe';
+      return '';
+    }
+
+    let state = createInitialState(true);
+    let qTable = {};
+    let trainingMeta = { episodes: 0, trained: false, updatedAt: null };
+    let trainingInProgress = false;
+
+    function policyStatusText(extra = '') {
+      const entries = Object.keys(qTable).length;
+      const base = trainingMeta.trained
+        ? `Learned AI · ${trainingMeta.episodes} episodes · ${entries} q-values`
+        : `Heuristic AI · ${entries} q-values`;
+      return extra ? `${base} · ${extra}` : base;
+    }
+
+    function canonicalStateKey(state, perspectivePlayer = state.currentPlayer) {
+      const mine = state.positions[perspectivePlayer].slice().sort((a, b) => a - b).join(',');
+      const opp = state.positions[1 - perspectivePlayer].slice().sort((a, b) => a - b).join(',');
+      return `${mine}|${opp}|${state.move}|${state.extraTurn ? 1 : 0}`;
+    }
+
+    function stateActionKey(state, action, perspectivePlayer = state.currentPlayer) {
+      return `${canonicalStateKey(state, perspectivePlayer)}|${action}`;
+    }
+
+    function getQ(state, action, perspectivePlayer = state.currentPlayer) {
+      const key = stateActionKey(state, action, perspectivePlayer);
+      return Object.prototype.hasOwnProperty.call(qTable, key) ? qTable[key] : 0;
+    }
+
+    function setQ(state, action, value, perspectivePlayer = state.currentPlayer) {
+      qTable[stateActionKey(state, action, perspectivePlayer)] = value;
+    }
+
+    function bestFutureQ(state, legal, perspectivePlayer = state.currentPlayer) {
+      if (!legal.length) return 0;
+      let best = -Infinity;
+      for (const action of legal) {
+        const value = getQ(state, action, perspectivePlayer);
+        if (value > best) best = value;
+      }
+      return best === -Infinity ? 0 : best;
+    }
+
+    function rewardDelta(prevState, nextState, action, actingPlayer) {
+      const prevPos = prevState.positions[actingPlayer][action];
+      const nextPos = nextState.positions[actingPlayer][action];
+      let reward = 0;
+
+      if (nextPos === OFF_BOARD) reward += 8;
+      if (nextPos !== OFF_BOARD && prevPos !== OFF_BOARD) reward += Math.max(0, nextPos - prevPos) * 0.08;
+      if (nextPos === OFF_BOARD && prevPos !== OFF_BOARD) reward += 0.5;
+      if (nextPos !== OFF_BOARD && SAFE_SQUARES.has(nextPos)) reward += 0.3;
+      if (nextPos === WATER_SQUARE) reward -= 2;
+
+      const beforeOpp = prevState.positions[1 - actingPlayer].slice().sort((a, b) => a - b).join(',');
+      const afterOpp = nextState.positions[1 - actingPlayer].slice().sort((a, b) => a - b).join(',');
+      if (beforeOpp !== afterOpp) reward += 1.2;
+      if (nextState.winner === actingPlayer) reward += 25;
+
+      return reward;
+    }
+
+    function chooseTrainingAction(simState, legal, epsilon = 0.18, perspectivePlayer = simState.currentPlayer) {
+      if (!legal.length) return null;
+      if (Math.random() < epsilon) {
+        return legal[Math.floor(Math.random() * legal.length)];
+      }
+      let bestAction = legal[0];
+      let bestScore = -Infinity;
+      for (const action of legal) {
+        const q = getQ(simState, action, perspectivePlayer);
+        const h = heuristicScore(simState, action);
+        const score = q + 0.02 * h + Math.random() * 0.0001;
+        if (score > bestScore) {
+          bestScore = score;
+          bestAction = action;
+        }
+      }
+      return bestAction;
+    }
+
+    function chooseLearnedAction(gameState, legal) {
+      if (!legal.length) return null;
+      let bestAction = legal[0];
+      let bestScore = -Infinity;
+      for (const action of legal) {
+        const key = stateActionKey(gameState, action, gameState.currentPlayer);
+        const hasLearned = Object.prototype.hasOwnProperty.call(qTable, key);
+        const q = hasLearned ? qTable[key] : 0;
+        const h = heuristicScore(gameState, action);
+        const score = hasLearned ? q + 0.01 * h : h;
+        if (score > bestScore) {
+          bestScore = score;
+          bestAction = action;
+        }
+      }
+      return bestAction;
+    }
+
+    function savePolicy() {
+      try {
+        localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(qTable));
+        localStorage.setItem(TRAINING_META_KEY, JSON.stringify(trainingMeta));
+      } catch (err) {
+        console.warn('Failed to save learned policy', err);
+      }
+    }
+
+    function loadPolicy() {
+      try {
+        const rawQ = localStorage.getItem(AI_STORAGE_KEY);
+        const rawMeta = localStorage.getItem(TRAINING_META_KEY);
+        qTable = rawQ ? JSON.parse(rawQ) : {};
+        trainingMeta = rawMeta ? JSON.parse(rawMeta) : { episodes: 0, trained: false, updatedAt: null };
+      } catch (err) {
+        qTable = {};
+        trainingMeta = { episodes: 0, trained: false, updatedAt: null };
+      }
+    }
+
+    function trainSelfPlayEpisode(alpha = 0.18, gamma = 0.96, epsilon = 0.18) {
+      let sim = createInitialState(Math.random() < 0.5);
+      let steps = 0;
+
+      while (sim.winner === null && steps < 500) {
+        const actingPlayer = sim.currentPlayer;
+        const legal = legalActions(sim);
+
+        if (!legal.length) {
+          const next = randomThrow();
+          sim = {
+            ...sim,
+            currentPlayer: 1 - sim.currentPlayer,
+            move: next.move,
+            extraTurn: next.extra,
+          };
+          steps += 1;
+          continue;
+        }
+
+        const before = cloneState(sim);
+        const action = chooseTrainingAction(before, legal, epsilon, actingPlayer);
+        const after = cloneState(applyMove(sim, action));
+        const nextLegal = after.winner === null ? legalActions(after) : [];
+        const reward = rewardDelta(before, after, action, actingPlayer);
+        const oldQ = getQ(before, action, actingPlayer);
+        const target = reward + (after.winner === null ? gamma * bestFutureQ(after, nextLegal, after.currentPlayer) : 0);
+        setQ(before, action, oldQ + alpha * (target - oldQ), actingPlayer);
+
+        sim = after;
+        steps += 1;
+      }
+    }
+
+    async function trainAI(episodes = 2500, chunkSize = 200) {
+      if (trainingInProgress) return;
+      trainingInProgress = true;
+      render('training…');
+      let completed = 0;
+      while (completed < episodes) {
+        const run = Math.min(chunkSize, episodes - completed);
+        for (let i = 0; i < run; i += 1) {
+          trainSelfPlayEpisode();
+        }
+        completed += run;
+        trainingMeta.episodes += run;
+        trainingMeta.trained = true;
+        trainingMeta.updatedAt = new Date().toISOString();
+        render(`training ${completed}/${episodes}`);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      savePolicy();
+      trainingInProgress = false;
+      render('ready');
+    }
+
+    function render(statusExtra = '') {
+      const legal = legalActions(state);
+      const occ = occupiedMap(state.positions);
+
+      badgesEl.innerHTML = '';
+      const badges = [
+        { text: `Turn: ${state.currentPlayer === 0 ? 'You' : 'AI'}`, active: state.currentPlayer === 0 },
+        { text: `Throw: ${state.move}` },
+        { text: `Extra turn: ${state.extraTurn ? 'Yes' : 'No'}` },
+        { text: state.currentPlayer === 0 ? `Legal pieces: ${legal.length ? legal.map(x => x + 1).join(', ') : 'none'}` : 'AI is thinking' },
+        { text: policyStatusText(statusExtra) },
+      ];
+      badges.forEach(b => {
+        const el = document.createElement('span');
+        el.className = 'badge' + (b.active ? ' active' : '');
+        el.textContent = b.text;
+        badgesEl.appendChild(el);
+      });
+
+      boardEl.innerHTML = '';
+      rows().forEach(row => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'board-row';
+        row.forEach(square => {
+          const btn = document.createElement('button');
+          const occupant = occ.get(square);
+          const canClick = !trainingInProgress && state.currentPlayer === 0 && occupant && occupant.player === 0 && legal.includes(occupant.pieceIdx);
+          btn.className = 'square' + (square === WATER_SQUARE ? ' water' : '') + (canClick ? ' clickable' : '');
+          btn.innerHTML = `
+            <div class="sq-top">
+              <span class="sq-num">${square}</span>
+              ${tagForSquare(square) ? `<span class="sq-tag">${tagForSquare(square)}</span>` : ''}
+            </div>
+            <div class="sq-center"></div>
+          `;
+          const center = btn.querySelector('.sq-center');
+          if (!occupant) {
+            center.innerHTML = '<span class="empty">empty</span>';
+          } else {
+            center.innerHTML = `
+              <div class="piece">
+                <div class="piece-token ${occupant.player === 0 ? 'human' : 'ai'}">${occupant.player === 0 ? 'Y' : 'A'}${occupant.pieceIdx + 1}</div>
+                ${canClick ? '<span class="click-label">tap</span>' : ''}
+              </div>
+            `;
+          }
+          if (canClick) {
+            btn.addEventListener('click', () => {
+              state = applyMove(state, occupant.pieceIdx);
+              render();
+              maybeAdvance();
+            });
+          }
+          rowEl.appendChild(btn);
+        });
+        boardEl.appendChild(rowEl);
+      });
+
+      humanPiecesEl.innerHTML = '';
+      state.positions[0].forEach((p, i) => {
+        const el = document.createElement('div');
+        el.textContent = `Piece ${i + 1}: ${p === OFF_BOARD ? 'off board' : `square ${p}`}`;
+        humanPiecesEl.appendChild(el);
+      });
+
+      aiPiecesEl.innerHTML = '';
+      state.positions[1].forEach((p, i) => {
+        const el = document.createElement('div');
+        el.textContent = `Piece ${i + 1}: ${p === OFF_BOARD ? 'off board' : `square ${p}`}`;
+        aiPiecesEl.appendChild(el);
+      });
+
+      logEl.innerHTML = '';
+      state.log.forEach(entry => {
+        const el = document.createElement('div');
+        el.className = 'log-item';
+        el.textContent = entry;
+        logEl.appendChild(el);
+      });
+    }
+
+    function maybeAdvance() {
+      if (trainingInProgress) return;
+      if (state.winner !== null) return;
+      const legal = legalActions(state);
+
+      if (legal.length === 0) {
+        setTimeout(() => {
+          const next = randomThrow();
+          state = {
+            ...state,
+            currentPlayer: 1 - state.currentPlayer,
+            move: next.move,
+            extraTurn: next.extra,
+            log: [`${state.currentPlayer === 0 ? 'You' : 'AI'} had no legal move. Turn passes.`, ...state.log],
+          };
+          render();
+          maybeAdvance();
+        }, 450);
+        return;
+      }
+
+      if (state.currentPlayer === 1) {
+        setTimeout(() => {
+          if (trainingInProgress) return;
+          const aiLegal = legalActions(state);
+          if (!aiLegal.length) return;
+          const best = chooseLearnedAction(state, aiLegal);
+          state = applyMove(state, best);
+          render();
+          maybeAdvance();
+        }, 650);
+      }
+    }
+
+    document.getElementById('newHuman').addEventListener('click', () => {
+      state = createInitialState(true);
+      render();
+      maybeAdvance();
+    });
+
+    document.getElementById('newAI').addEventListener('click', () => {
+      state = createInitialState(false);
+      render();
+      maybeAdvance();
+    });
+
+    loadPolicy();
+
+    const controls = document.querySelector('.btn-row');
+    const trainBtn = document.createElement('button');
+    trainBtn.className = 'btn btn-light';
+    trainBtn.id = 'trainAI';
+    trainBtn.textContent = 'Train AI';
+    trainBtn.addEventListener('click', async () => {
+      await trainAI(3000, 200);
+      render();
+    });
+    controls.appendChild(trainBtn);
+
+    (async () => {
+      render();
+      if (!trainingMeta.trained || trainingMeta.episodes < 2000) {
+        await trainAI(2500, 200);
+      }
+      render();
+      maybeAdvance();
+    })();
+  </script>
+</body>
+</html>
